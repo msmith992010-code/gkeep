@@ -26,8 +26,10 @@ class GKeepApp : Application() {
 /** Simple manual dependency container. */
 class AppGraph(context: Context) {
     val prefs = Prefs(context)
-    val db = Room.databaseBuilder(context, AppDatabase::class.java, "gkeep.db").build()
+    val db = Room.databaseBuilder(context, AppDatabase::class.java, "gkeep.db")
+        .addMigrations(AppDatabase.MIGRATION_1_2)
+        .build()
     val auth = GmailAuth(context, prefs)
     val gmail = GmailClient { auth.token() }
-    val manager = InboxManager(gmail, db.senders())
+    val manager = InboxManager(gmail, db.senders(), db.keptMessages())
 }

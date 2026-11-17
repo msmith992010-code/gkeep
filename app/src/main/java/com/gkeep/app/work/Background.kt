@@ -39,7 +39,7 @@ class InboxWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
         if (prefs.accountEmail == null) return Result.success()
 
         return try {
-            val result = graph.manager.loadRecent()
+            val result = graph.manager.loadRecent(prefs.lookbackDays)
             val last = prefs.lastNotifiedAt
             if (prefs.notificationsEnabled) {
                 val fresh = result.emails.filter { it.receivedAt > last && it.unread }

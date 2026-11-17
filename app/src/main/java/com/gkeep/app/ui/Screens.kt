@@ -45,7 +45,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -135,16 +140,21 @@ fun InboxScreen(
     onOpenSenders: () -> Unit,
     onOpenSettings: () -> Unit,
     onMessageShown: () -> Unit,
+    onUndoKeep: () -> Unit,
 ) {
     val snackbar = remember { SnackbarHostState() }
     var confirm by remember { mutableStateOf(false) }
     val toDelete = state.emails.count { it.id !in state.keepIds }
 
-    LaunchedEffect(state.message) {
-        state.message?.let {
-            snackbar.showSnackbar(it)
-            onMessageShown()
-        }
+    LaunchedEffect(state.message?.id) {
+        val msg = state.message ?: return@LaunchedEffect
+        val result = snackbar.showSnackbar(
+            message = msg.text,
+            actionLabel = if (msg.canUndo) "Undo" else null,
+            duration = SnackbarDuration.Short,
+        )
+        if (result == SnackbarResult.ActionPerformed) onUndoKeep()
+        onMessageShown()
     }
 
     Scaffold(
@@ -154,7 +164,7 @@ fun InboxScreen(
                     Column {
                         Text("GKeep")
                         Text(
-                            "Last 24 hours · ${state.emails.size} in inbox",
+                            "${periodLabel(state.days)} · ${state.emails.size} to sort",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -204,7 +214,7 @@ fun InboxScreen(
                     item {
                         Box(Modifier.fillMaxWidth().padding(48.dp), contentAlignment = Alignment.Center) {
                             Text(
-                                "Nothing new in the last 24 hours.",
+                                "Nothing left to sort from the ${periodLabel(state.days).lowercase()}.",
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
@@ -227,7 +237,7 @@ fun InboxScreen(
             onDismissRequest = { confirm = false },
             title = { Text("Delete $toDelete emails?") },
             text = {
-                Text("They'll move to Gmail's Trash (recoverable for 30 days). Kept emails stay unread in your inbox.")
+                Text("They'll move to Gmail's Trash (recoverable for 30 days). Emails marked Keep stay unread in your inbox.")
             },
             confirmButton = {
                 TextButton(onClick = { confirm = false; onCleanUp() }) { Text("Delete") }
@@ -283,12 +293,19 @@ private fun EmailRow(email: Email, kept: Boolean, autoKept: Boolean, onToggle: (
 }
 
 private val timeFmt = DateTimeFormatter.ofPattern("HH:mm")
+private val dayFmt = DateTimeFormatter.ofPattern("EEE d MMM, HH:mm")
 
 private fun formatTime(millis: Long): String {
     val dt = Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault())
-    val prefix = if (dt.toLocalDate() == LocalDate.now()) "" else "Yesterday "
-    return prefix + dt.format(timeFmt)
+    val today = LocalDate.now()
+    return when (dt.toLocalDate()) {
+        today -> dt.format(timeFmt)
+        today.minusDays(1) -> "Yesterday " + dt.format(timeFmt)
+        else -> dt.format(dayFmt)
+    }
 }
+
+private fun periodLabel(days: Int) = if (days == 1) "Last 24 hours" else "Last $days days"
 
 // ---------- Senders ----------
 
@@ -378,6 +395,7 @@ fun SettingsScreen(
     state: InboxUiState,
     onNotifications: (Boolean) -> Unit,
     onNotifyKeptOnly: (Boolean) -> Unit,
+    onDays: (Int) -> Unit,
     onSignOut: () -> Unit,
     onBack: () -> Unit,
 ) {
@@ -404,6 +422,22 @@ fun SettingsScreen(
     ) { padding ->
         Column(Modifier.padding(padding).verticalScroll(rememberScrollState())) {
             ListItem(
+                headlineContent = { Text("Days of email to show") },
+                supportingContent = { Text("How far back GKeep looks in your inbox") },
+            )
+            SingleChoiceSegmentedButtonRow(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 8.dp),
+            ) {
+                (1..5).forEach { d ->
+                    SegmentedButton(
+                        selected = state.days == d,
+                        onClick = { onDays(d) },
+                        shape = SegmentedButtonDefaults.itemShape(index = d - 1, count = 5),
+                    ) { Text("$d") }
+                }
+            }
+            HorizontalDivider()
+            ListItem(
                 headlineContent = { Text("Notifications") },
                 supportingContent = { Text("Checks for new email about every 15 minutes") },
                 trailingContent = {
@@ -426,10 +460,11 @@ fun SettingsScreen(
                 headlineContent = { Text("How GKeep works") },
                 supportingContent = {
                     Text(
-                        "• Tap Keep on emails you want to stay (unread) in your inbox.\n" +
-                            "• Delete moves everything else to Gmail's Trash.\n" +
-                            "• Keeping an email means future emails from that sender start marked Keep.\n" +
-                            "• Delete a sender's emails more than $AUTO_DELETE_AFTER times and GKeep auto-deletes them."
+                        "• Tap Keep and the email stays (unread) in your inbox and leaves this list.\n" +
+                            "• Emails from senders you've kept start marked Keep; tap to untick.\n" +
+                            "• Delete moves everything not marked Keep to Gmail's Trash.\n" +
+                            "• Delete a sender's emails more than $AUTO_DELETE_AFTER times and GKeep auto-deletes them. " +
+                            "Keeping a sender resets their count to zero."
                     )
                 },
             )

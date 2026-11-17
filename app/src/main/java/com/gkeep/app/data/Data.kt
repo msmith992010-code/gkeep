@@ -8,6 +8,8 @@ import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.RoomDatabase
 import androidx.room.Upsert
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import kotlinx.coroutines.flow.Flow
 
 /** Everything GKeep remembers about one sender. */
@@ -44,11 +46,45 @@ interface SenderDao {
 
     @Upsert
     suspend fun upsertAll(senders: List<SenderEntity>)
+
+    @Query("DELETE FROM senders WHERE email = :email")
+    suspend fun delete(email: String)
 }
 
-@Database(entities = [SenderEntity::class], version = 1, exportSchema = false)
+/** An email you kept. Kept emails stay in Gmail but are hidden from GKeep's list. */
+@Entity(tableName = "kept_messages")
+data class KeptMessage(@PrimaryKey val id: String, val keptAt: Long)
+
+@Dao
+interface KeptMessageDao {
+    @Query("SELECT id FROM kept_messages")
+    suspend fun allIds(): List<String>
+
+    @Upsert
+    suspend fun upsertAll(messages: List<KeptMessage>)
+
+    @Query("DELETE FROM kept_messages WHERE id = :id")
+    suspend fun delete(id: String)
+
+    @Query("DELETE FROM kept_messages WHERE keptAt < :before")
+    suspend fun prune(before: Long)
+}
+
+@Database(entities = [SenderEntity::class, KeptMessage::class], version = 2, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun senders(): SenderDao
+    abstract fun keptMessages(): KeptMessageDao
+
+    companion object {
+        val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `kept_messages` " +
+                        "(`id` TEXT NOT NULL, `keptAt` INTEGER NOT NULL, PRIMARY KEY(`id`))"
+                )
+            }
+        }
+    }
 }
 
 /** Small settings store. */
@@ -66,6 +102,11 @@ class Prefs(context: Context) {
     var notifyKeptOnly: Boolean
         get() = sp.getBoolean("notify_kept_only", false)
         set(v) = sp.edit().putBoolean("notify_kept_only", v).apply()
+
+    /** How many days of email to show: 1 to 5. */
+    var lookbackDays: Int
+        get() = sp.getInt("lookback_days", 1).coerceIn(1, 5)
+        set(v) = sp.edit().putInt("lookback_days", v.coerceIn(1, 5)).apply()
 
     /** Newest email time we've already shown or notified about. */
     var lastNotifiedAt: Long

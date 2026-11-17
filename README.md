@@ -6,10 +6,10 @@ An Android app that shows the last 24 hours of your Gmail inbox. You tap **Keep*
 
 | | |
 |---|---|
-| **Inbox** | Lists every email that reached your Gmail inbox in the last 24 hours, newest first. |
-| **Keep** | Tap an email (or its Keep chip) to keep it. Kept emails are left untouched in Gmail and stay unread. |
+| **Inbox** | Lists every email that reached your Gmail inbox in the last 1–5 days (set in **Settings**, default 24 hours), newest first. |
+| **Keep** | Tap an email (or its Keep chip) to keep it. It's left untouched (unread) in Gmail and disappears from GKeep's list straight away, with an Undo option. |
 | **Delete** | The **Delete N** button moves every un-kept email to Gmail's Trash, after one confirmation. Gmail empties Trash after 30 days. |
-| **Remembered senders** | When you keep an email, that sender is remembered. Their future emails start out marked Keep when you open the app, and you can untick any of them. Manage the list under **Senders** (the person icon). |
+| **Remembered senders** | When you keep an email, that sender is remembered. Their future emails start out marked Keep when you open the app, and you can untick any of them. Keeping a sender also resets their deletion count to zero. Manage the list under **Senders** (the person icon). |
 | **Auto-delete** | Once you've deleted more than 10 emails from a sender, GKeep creates a Gmail filter that sends all their future mail to Trash. GKeep also trashes any of their mail it finds during a sync. You can unblock a sender under **Senders**. Senders you keep are never auto-deleted. |
 | **Notifications** | Optional. GKeep checks about every 15 minutes, which is the minimum Android allows, and can be limited to kept senders only. |
 

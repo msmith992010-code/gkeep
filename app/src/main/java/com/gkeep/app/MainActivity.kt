@@ -61,18 +61,19 @@ private fun GKeepRoot(vm: InboxViewModel) {
     var screen by rememberSaveable { mutableStateOf(Screen.Inbox) }
 
     if (state.account == null) {
-        SignInScreen(loading = state.loading, message = state.message, onSignIn = vm::signIn)
+        SignInScreen(loading = state.loading, message = state.message?.text, onSignIn = vm::signIn)
     } else {
         BackHandler(enabled = screen != Screen.Inbox) { screen = Screen.Inbox }
         when (screen) {
             Screen.Inbox -> InboxScreen(
                 state = state,
                 onToggleKeep = vm::toggleKeep,
-                onRefresh = vm::refresh,
+                onRefresh = { vm.refresh() },
                 onCleanUp = vm::cleanUp,
                 onOpenSenders = { screen = Screen.Senders },
                 onOpenSettings = { screen = Screen.Settings },
                 onMessageShown = vm::messageShown,
+                onUndoKeep = vm::undoKeep,
             )
             Screen.Senders -> SendersScreen(
                 senders = senders,
@@ -84,6 +85,7 @@ private fun GKeepRoot(vm: InboxViewModel) {
                 state = state,
                 onNotifications = vm::setNotifications,
                 onNotifyKeptOnly = vm::setNotifyKeptOnly,
+                onDays = vm::setDays,
                 onSignOut = { vm.signOut(); screen = Screen.Inbox },
                 onBack = { screen = Screen.Inbox },
             )

@@ -72,14 +72,14 @@ class GmailClient(private val tokenProvider: suspend () -> String) {
 
     suspend fun profileEmail(): String = api.profile(auth()).emailAddress.lowercase()
 
-    /** Messages currently in the inbox that arrived in the last 24 hours, newest first. */
-    suspend fun recentInbox(): List<Email> {
-        val cutoff = System.currentTimeMillis() - DAY_MS
+    /** Messages currently in the inbox that arrived in the last [days] days, newest first. */
+    suspend fun recentInbox(days: Int): List<Email> {
+        val cutoff = System.currentTimeMillis() - days * DAY_MS
         val auth = auth()
         val refs = mutableListOf<MessageRef>()
         var page: String? = null
         do {
-            val result = api.listMessages(auth, "in:inbox newer_than:1d", 100, page)
+            val result = api.listMessages(auth, "in:inbox newer_than:${days}d", 100, page)
             refs += result.messages
             page = result.nextPageToken
         } while (page != null && refs.size < MAX_MESSAGES)
@@ -148,7 +148,7 @@ class GmailClient(private val tokenProvider: suspend () -> String) {
     companion object {
         private const val DAY_MS = 24 * 60 * 60 * 1000L
         private const val BATCH = 10
-        private const val MAX_MESSAGES = 500
+        private const val MAX_MESSAGES = 1000
 
         /** "Jane Doe <Jane@Example.com>" -> ("Jane Doe", "jane@example.com") */
         fun parseFrom(raw: String): Pair<String, String> {
